@@ -1,0 +1,50 @@
+name: Build
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install dependancies with Homebrew
+        run: |
+          brew update
+          brew install automake fdk-aac git lame libass libtool libvorbis libvpx opus sdl shtool texi2html theora wget x264 xvid yasm pkg-config cmake meson
+      
+      - name: Configure FFmpeg for Static Embedding
+        run: |
+          ./configure \
+          --prefix=/usr/local/ffmpeg \
+          --enable-gpl \
+          --enable-nonfree \
+          --enable-libmp3lame \
+          --enable-libx264 \
+          --enable-libxvid \
+          --enable-libvpx \
+          --enable-libvorbis \
+          --enable-libopus \
+          --enable-libass \
+          --enable-libfdk-aac \
+          --pkg-config-flags="--static" \
+          --extra-cflags="-static" \
+          --enable-pthreads
+      
+      - name: Compile the Binary
+        run: make -j$(sysctl -n hw.ncpu)
+      
+      - name: Verify
+        run: otool -L ffmpeg
+      
+      - name: Install
+        run: make install DESTDIR="$GITHUB_WORKSPACE/ffmpeg-package"
+      
+      - name: Artifact Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg
+          path: $GITHUB_WORKSPACE/ffmpeg-package
