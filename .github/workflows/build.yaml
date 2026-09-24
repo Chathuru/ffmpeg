@@ -15,11 +15,22 @@ jobs:
         run: |
           brew update
           brew install automake fdk-aac git lame libass libtool libvorbis libvpx \
-          opus sdl shtool texi2html theora wget x264 x265 xvid nasm
-
+          opus sdl shtool texi2html theora wget x264 x265 xvid nasm pkg-config
+      
+      - name: Verify dependencies
+        run: |
+          pkg-config --modversion libmp3lame
+          pkg-config --modversion x264
+          pkg-config --modversion vpx
+          pkg-config --modversion vorbis
+          pkg-config --modversion opus
+          pkg-config --modversion libass
+          pkg-config --modversion fdk-aac   
       
       - name: Configure FFmpeg for Static Embedding
         run: |
+          echo "Homebrew prefix: $(brew --prefix)"
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
           export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
 
           ./configure  --prefix=/usr/local --enable-gpl --enable-nonfree --enable-libass \
