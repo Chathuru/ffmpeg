@@ -18,10 +18,11 @@ jobs:
       
       - name: Configure FFmpeg for Static Embedding
         run: |
+          export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
+
           ./configure \
           --prefix=/usr/local/ffmpeg \
           --enable-gpl \
-          --enable-nonfree \
           --enable-libmp3lame \
           --enable-libx264 \
           --enable-libxvid \
@@ -31,7 +32,6 @@ jobs:
           --enable-libass \
           --enable-libfdk-aac \
           --pkg-config-flags="--static" \
-          --extra-cflags="-static" \
           --enable-pthreads
       
       - name: Compile the Binary
