@@ -14,21 +14,17 @@ jobs:
       - name: Install dependancies with Homebrew
         run: |
           brew update
-          brew install automake fdk-aac git lame libass libtool libvorbis libvpx opus sdl shtool texi2html theora wget x264 xvid yasm pkg-config cmake meson
+          brew install automake fdk-aac git lame libass libtool libvorbis libvpx \
+          opus sdl shtool texi2html theora wget x264 x265 xvid nasm
+
       
       - name: Configure FFmpeg for Static Embedding
         run: |
           export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-          ./configure \
-          --prefix=/usr/local/ffmpeg --enable-avisynth --enable-fontconfig --enable-gpl \
-          --enable-libaom --enable-libass --enable-libbluray --enable-libdav1d --enable-libfreetype \
-          --enable-libgsm --enable-libharfbuzz --enable-libmodplug --enable-libmp3lame \
-          --enable-libmysofa --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 \
-          --enable-libopenjpeg --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy \
-          --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvmaf \
-          --enable-libvo-amrwbenc --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 \
-          --enable-libxavs --enable-libxml2 --enable-libxvid --enable-libzimg --enable-libzmq --enable-libzvbi --enable-version3 \
+          ./configure  --prefix=/usr/local --enable-gpl --enable-nonfree --enable-libass \
+          --enable-libfdk-aac --enable-libfreetype --enable-libmp3lame \
+          --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-libopus --enable-libxvid \
           --pkg-config-flags=--static
       
       - name: Compile the Binary
