@@ -17,11 +17,26 @@ jobs:
           brew install automake fdk-aac git lame libass libtool libvorbis libvpx \
           opus sdl shtool texi2html theora wget x264 x265 xvid nasm pkg-config
       
+      - name: Set environment variables
+        run: |
+          HOMEBREW_PREFIX="$(brew --prefix)"
+          
+          # Add pkg-config paths for keg-only and standard formulas
+          PKG_PATH=""
+          for pkg in libffi openssl@3 readline sqlite icu4c zlib; do
+            if [ -d "$HOMEBREW_PREFIX/opt/$pkg/lib/pkgconfig" ]; then
+              PKG_PATH="$HOMEBREW_PREFIX/opt/$pkg/lib/pkgconfig:$PKG_PATH"
+            fi
+          done
+          PKG_PATH="$HOMEBREW_PREFIX/lib/pkgconfig:$HOMEBREW_PREFIX/share/pkgconfig:$PKG_PATH"
+          
+          echo "PKG_CONFIG_PATH=$PKG_PATH" >> "$GITHUB_ENV"
+          echo "EXTRA_CFLAGS=-I$HOMEBREW_PREFIX/include" >> "$GITHUB_ENV"
+          echo "EXTRA_LDFLAGS=-L$HOMEBREW_PREFIX/lib" >> "$GITHUB_ENV"
+      
       - name: Verify dependencies
         run: |
-          echo "Homebrew prefix: $(brew --prefix)"
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
-          export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "$PKG_CONFIG_PATH"
           
           pkg-config --modversion libmp3lame
           pkg-config --modversion x264
