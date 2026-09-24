@@ -19,6 +19,10 @@ jobs:
       
       - name: Verify dependencies
         run: |
+          echo "Homebrew prefix: $(brew --prefix)"
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
+          export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          
           pkg-config --modversion libmp3lame
           pkg-config --modversion x264
           pkg-config --modversion vpx
@@ -29,9 +33,7 @@ jobs:
       
       - name: Configure FFmpeg for Static Embedding
         run: |
-          echo "Homebrew prefix: $(brew --prefix)"
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
-          export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "$PKG_CONFIG_PATH"
 
           ./configure  --prefix=/usr/local --enable-gpl --enable-nonfree --enable-libass \
           --enable-libfdk-aac --enable-libfreetype --enable-libmp3lame \
