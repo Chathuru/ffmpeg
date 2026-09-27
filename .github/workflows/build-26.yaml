@@ -64,6 +64,7 @@ jobs:
 
           export PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig"
           
+          # Explicitly disable X11 / XCB library detection to eliminate dynamic linkage
           ./configure \
             --prefix="$HOME/ffmpeg_build" \
             --pkg-config-flags="--static" \
@@ -77,7 +78,12 @@ jobs:
             --enable-libfdk-aac \
             --enable-libopus \
             --enable-libvpx \
-            --enable-pthreads
+            --enable-pthreads \
+            --disable-xlib \
+            --disable-libxcb \
+            --disable-libxcb-shm \
+            --disable-libxcb-xfixes \
+            --disable-libxcb-shape
             
           make -j$(sysctl -n hw.ncpu)
           make install
@@ -88,7 +94,7 @@ jobs:
 
       - name: Verify Single Executable Dependencies
         run: |
-          # Verify that no non-system .dylib files are linked
+          # Verify that no /opt/homebrew dylibs remain linked
           otool -L $HOME/bin/ffmpeg
 
       - name: Upload Single Binary Artifact
