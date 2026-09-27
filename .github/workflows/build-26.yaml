@@ -1,0 +1,98 @@
+name: Build Single Static FFmpeg Binary (macOS Apple Silicon)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-static:
+    runs-on: macos-26
+
+    steps:
+      - name: Install Build Tools
+        run: |
+          brew update
+          brew install nasm yasm pkg-config automake libtool
+
+      - name: Build Static Dependencies
+        run: |
+          mkdir -p $HOME/ffmpeg_build $HOME/ffmpeg_sources $HOME/bin
+          export PATH="$HOME/bin:$PATH"
+          export PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+          # 1. libmp3lame (Static)
+          cd $HOME/ffmpeg_sources
+          curl -sL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz | tar xz
+          cd lame-3.100
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
+          make -j$(sysctl -n hw.ncpu) && make install
+
+          # 2. libx264 (Static)
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://code.videolan.org/videolan/x264.git
+          cd x264
+          ./configure --prefix="$HOME/ffmpeg_build" --enable-static --disable-cli
+          make -j$(sysctl -n hw.ncpu) && make install
+
+          # 3. libfdk-aac (Static)
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://github.com/mstorsjo/fdk-aac
+          cd fdk-aac
+          autoreconf -fiv
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
+          make -j$(sysctl -n hw.ncpu) && make install
+
+          # 4. libopus (Static)
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://github.com/xiph/opus.git
+          cd opus
+          autoreconf -fiv
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
+          make -j$(sysctl -n hw.ncpu) && make install
+
+          # 5. libvpx (Static)
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://chromium.googlesource.com/webm/libvpx
+          cd libvpx
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static --disable-examples --disable-unit-tests
+          make -j$(sysctl -n hw.ncpu) && make install
+
+      - name: Compile Single-Binary FFmpeg
+        run: |
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git
+          cd ffmpeg
+
+          export PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig"
+          
+          ./configure \
+            --prefix="$HOME/ffmpeg_build" \
+            --pkg-config-flags="--static" \
+            --extra-cflags="-I$HOME/ffmpeg_build/include" \
+            --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
+            --bindir="$HOME/bin" \
+            --enable-gpl \
+            --enable-nonfree \
+            --enable-libmp3lame \
+            --enable-libx264 \
+            --enable-libfdk-aac \
+            --enable-libopus \
+            --enable-libvpx \
+            --enable-pthreads
+            
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Ad-hoc Sign Executable
+        run: |
+          codesign --force -s - $HOME/bin/ffmpeg
+
+      - name: Verify Single Executable Dependencies
+        run: |
+          # Verify that no non-system .dylib files are linked
+          otool -L $HOME/bin/ffmpeg
+
+      - name: Upload Single Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-standalone-arm64
+          path: ${{ env.HOME }}/bin/ffmpeg
