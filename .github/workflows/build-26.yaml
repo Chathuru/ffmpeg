@@ -21,7 +21,6 @@ jobs:
       
       - name: libmp3lame Dependency Build
         run: |
-          # 1. libmp3lame (Static)
           cd $HOME/ffmpeg_sources
           curl -sL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz | tar xz
           cd lame-3.100
