@@ -13,58 +13,129 @@ jobs:
           brew update
           brew install nasm yasm pkg-config automake libtool
 
-      - name: Build Static Dependencies
+      - name: Setup Static Dependencies Build
         run: |
           mkdir -p $HOME/ffmpeg_build $HOME/ffmpeg_sources $HOME/bin
           export PATH="$HOME/bin:$PATH"
           export PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig:$PKG_CONFIG_PATH"
-
+      
+      - name: libmp3lame Dependency Build
+        run: |
           # 1. libmp3lame (Static)
           cd $HOME/ffmpeg_sources
           curl -sL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz | tar xz
           cd lame-3.100
           ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
           make -j$(sysctl -n hw.ncpu) && make install
-
-          # 2. libx264 (Static)
+      
+      - name: libx264 Dependency Build
+        run: |
           cd $HOME/ffmpeg_sources
           git clone --depth 1 https://code.videolan.org/videolan/x264.git
           cd x264
           ./configure --prefix="$HOME/ffmpeg_build" --enable-static --disable-cli
           make -j$(sysctl -n hw.ncpu) && make install
-
-          # 3. libfdk-aac (Static)
+      
+      - name: libfdk-aac Dependency Build
+        run: |
           cd $HOME/ffmpeg_sources
           git clone --depth 1 https://github.com/mstorsjo/fdk-aac
           cd fdk-aac
           autoreconf -fiv
           ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
           make -j$(sysctl -n hw.ncpu) && make install
-
-          # 4. libopus (Static)
+      
+      - name: libopus Dependency Build
+        run: |
           cd $HOME/ffmpeg_sources
           git clone --depth 1 https://github.com/xiph/opus.git
           cd opus
           autoreconf -fiv
           ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
           make -j$(sysctl -n hw.ncpu) && make install
-
-          # 5. libvpx (Static)
+      
+      - name: libvpx Dependency Build
+        run: |
           cd $HOME/ffmpeg_sources
           git clone --depth 1 https://chromium.googlesource.com/webm/libvpx
           cd libvpx
           ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static --disable-examples --disable-unit-tests
           make -j$(sysctl -n hw.ncpu) && make install
 
-      - name: Compile Single-Binary FFmpeg
+      - name: Build libaom
+        run: |
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://aomedia.googlesource.com/aom
+          mkdir -p aom/aom_build && cd aom/aom_build
+          cmake -G "Unix Makefiles" .. \
+            -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DENABLE_EXAMPLES=OFF \
+            -DENABLE_TESTS=OFF
+          make -j$(sysctl -n hw.ncpu) && make install
+
+      - name: Build libdav1d
+        run: |
+          brew install meson ninja
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://code.videolan.org/videolan/dav1d.git
+          mkdir -p dav1d/build && cd dav1d/build
+          meson setup .. --prefix="$HOME/ffmpeg_build" --buildtype=release -Ddefault_library=static
+          ninja -j$(sysctl -n hw.ncpu) && ninja install
+
+      - name: Build libmodplug
+        run: |
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://github.com/Konstanty/libmodplug.git
+          cd libmodplug
+          autoreconf -fiv
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static
+          make -j$(sysctl -n hw.ncpu) && make install
+
+      - name: Build libopenh264
+        run: |
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://github.com/cisco/openh264.git
+          cd openh264
+          make PREFIX="$HOME/ffmpeg_build" BUILDTYPE=Release SHARED=LIB_SHARED_NO install-static
+
+      - name: Build libx265
+        run: |
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://bitbucket.org/multicoreware/x265_git.git
+          cd x265_git/build/linux
+          cmake -G "Unix Makefiles" ../../source \
+            -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" \
+            -DENABLE_SHARED=OFF \
+            -DENABLE_CLI=OFF
+          make -j$(sysctl -n hw.ncpu) && make install
+
+      - name: Build libxml2
+        run: |
+          cd $HOME/ffmpeg_sources
+          git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git
+          cd libxml2
+          autoreconf -fiv
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared --enable-static --without-python
+          make -j$(sysctl -n hw.ncpu) && make install
+
+      - name: Build libxvid
+        run: |
+          cd $HOME/ffmpeg_sources
+          curl -sL https://downloads.xvid.com/downloads/xvidcore-1.3.7.tar.gz | tar xz
+          cd xvidcore/build/generic
+          ./configure --prefix="$HOME/ffmpeg_build" --disable-shared
+          make -j$(sysctl -n hw.ncpu) && make install
+      
+      - name: Configure FFmpeg Build
         run: |
           cd $HOME/ffmpeg_sources
           git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git
           cd ffmpeg
 
+          echo "PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" >> "$GITHUB_ENV"
           export PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig"
           
-          # Explicitly disable X11 / XCB library detection to eliminate dynamic linkage
           ./configure \
             --prefix="$HOME/ffmpeg_build" \
             --pkg-config-flags="--static" \
@@ -84,17 +155,22 @@ jobs:
             --disable-libxcb-shm \
             --disable-libxcb-xfixes \
             --disable-libxcb-shape \
-            --extra-version=tessus --enable-avisynth --enable-fontconfig --enable-libaom --enable-libass \
-            --enable-libbluray --enable-libdav1d --enable-libfreetype --enable-libgsm --enable-libharfbuzz \
-            --enable-libmodplug --enable-libmysofa --enable-libopencore-amrnb \
-            --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopus \
-            --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex \
-            --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvmaf \
-            --enable-libvo-amrwbenc --enable-libvorbis --enable-libwebp --enable-libx265 \
-            --enable-libxavs --enable-libxml2 --enable-libxvid --enable-libzimg --enable-libzmq \
-            --enable-libzvbi --enable-version3
-            
+            --enable-libaom \
+            --enable-libdav1d \
+            --enable-libmodplug \
+            --enable-libopenh264 \
+            --enable-libx265 \
+            --enable-libxml2 \
+            --enable-libxvid
+     
+      - name: Compile FFmpeg
+        run: |
+          cd $HOME/ffmpeg_sources/ffmpeg
           make -j$(sysctl -n hw.ncpu)
+      
+      - name: Install FFmpeg
+        run: |
+          cd $HOME/ffmpeg_sources/ffmpeg
           make install
 
       - name: Ad-hoc Sign Executable
